@@ -1,0 +1,257 @@
+---
+title: "Data-analyysi vuoden 2010 autoista"
+author: "Vilhelmiina Rannikko"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Johdanto projektiin ja aineistoon
+
+Tämä harjoitustyö pohjautuu dataan vuoden 2010 autoista sekä niiden ominaisuuksista. Työssä pyritään analysoimaan tutkittavaa dataa erilaisten tilastollisten tunnuslukujen, menetelmien sekä muuttujien välisten suhteiden avulla. Lisäksi työ sisältää havainnollistavia kuvaajia liittyen datan ominaisuuksiin.
+
+Saatu data on saatavilla tiedostossa *Autoja_2010.xls*, jonka alkuperä on Tampereen yliopiston Tutkimusmenetelmien työkalupakki -Moodle-alueen harjoitusaineistoista. (https://moodle.tuni.fi/mod/url/view.php?id=144765) Lisäksi data löytyy myös palautuksen ohesta. Käytetty data sisältää 487 merkintää autoista, joiden tiedot on eritelty sarakkeittain. 
+
+Taulukko sisältää tiedot auton mallista, vuosimallista, matkamittarilukemasta, hinnasta, moottorin tilavuudesta, polttoainetyypistä sekä tehokkuudesta. Sarakkeen 9 mukaisesti tietyt vakioarvot vastaavat tiettyjä automerkkejä tai polttoainetyyppiä. Työ käsittelee kaikkia näitä taulukossa esiintyviä muuttujia, mutta työssä myöhemmin esiintyvät analyysit on tehty vain ei-binäärisille muuttujille.
+
+Automerkit vakioittain:
+
+**1 - Audi A3**<br/>
+**2 - Citroen C3**<br/>
+**3 - Ford Focus**<br/>
+**4 - Opel Astra**<br/>
+**5 - Renault Laguna**<br/>
+**6 - Toyota Yaris**<br/>
+**7 - Volkswagen Golf**<br/>
+**8 - Ford Focus**<br/>
+
+Polttoainetyypit vakioittain:
+
+**1 - Bensiini**<br/>
+**2 - Diesel**
+
+Ladataan seuraavaksi aineisto, ja poistetaan turhat sarakkeet 8 ja 9.
+
+```{r cars}
+library(readxl)
+autot <- read_excel("C:/Users/vilhe/Downloads/Autoja_2010.xls", 
+    range = "A1:G488")
+print(autot)
+
+```
+
+
+
+## Aineiston tilastolliset tunnusluvut
+
+Tarkastellaan seuraavaksi jokaisen tutkittavan muuttujan tilastolliset tunnusluvut. Muodostetaan ensimmäiseksi koko taulukon yleiskatsaus. Jätetään sarakkeet 1 ja 6 pois yleistarkastelusta, sillä niiden tarkastelu perinteisin tunnusluvuin ei ole tuloksellista.
+
+Tarkasteltavia muuttujia ovat vuosimalli, matkamittarilukema, auton teho, hinta ja moottorin tilavuus. Käytetään *describe*-komentoa apuna.
+
+
+```{r}
+library(psych)
+#Suoritetaan kooste halutuille sarakkeille.
+describe(autot[ , 
+       c('VUOSIM', 'MATKAMITTARI', 'HINTA', 'TILAVUUS', 'TEHO')],
+       fast=TRUE)
+#summary-komennon antamat tiedot:
+# vars: rivinumero
+# n: hyväksyttyjen (ei-NaN) arvojen lkm.
+# sd: keskihajonta (standard deviation)
+# range: erilaisten muuttujien lukumäärä
+# se: keskivirhe
+
+```
+Rivi yksi kuvastaa vuosimalli-sarakkeen koostetietoja. Taulukoitujen autojen vanhin valmistusvuosi on 2005, kun taas uusin on 2010. Autoja löytyy kaikilta valmistusvuosilta näiden reuna-arvojen välistä. Autot ovat keskimäärin hyvin vähän ajettuja, sillä matkamittarin keskiarvolukema on n. 50500 kilometriä. Minimiarvon mukaan autoja on myös täysin käyttämättömiä, ja kaikista eniten ajetulla autolla matkamittarilukema on hiukan päälle 200000 kilometriä.
+
+Myytävillä autoilla on hyvin standardiarvoiset moottorin iskutilavuudet. Autojen tehot ovat 50 ja 132:n välillä, keskiarvolukema asettuen 75.11:n. Tehon arvoja ei ole mitattu kaikille taulukon instansseille, joten tällä muuttujalla on suhteellisen paljon NaN-arvoja.
+
+Tarkastellaan keskihajonnan arvoja. Keskihajonnan suuruus voidaan määritellä sen suhteesta saman vakion keskiarvoon. Keskihajonta kertoo vakion poikkeaman sen keskiarvosta. Jakamalla keskihajonta keskiarvolla voidaan nähdä keskihajonnan suhteellinen suuruus. Jos tämä suhde on yli 1, voidaan keskihajonnan katsoa olevan suuri. Huomataan taulukosta, että matkamittarilukemalle, tilavuudelle, auton hinnalle sekä sen tehon arvolle keskihajonta on pieni - suurin osa taulukoiduista autoista siis seuraa keskiarvoa näiden muuttujien osalta. Tehdään siis oletus, että kyseiset muuttujat noudattavat normaalijakaumaa. Tarkastellaan muuttujien jakaumaa syvemmin harjoitustyön myöhemmissä osioissa.
+
+Tarkastellaan myös kvartiiliarvot, eli selvitetään matkamittarilukeman, hinnan, tilavuuden ja tehon kaikki neljännesarvoprosentit. *quantile*-komento siis kertoo, minkä arvon alle jää sarakkeen 25%, 50%, 75% arvoista, kun arvot on laitettu nousevaan suuruusjärjestykseen.
+
+```{r}
+print("MATKAMITTARILUKEMA")
+quantile(autot$MATKAMITTARI)
+print("HINTA")
+quantile(autot$HINTA)
+print("TILAVUUS")
+#Poistetaan NaN-arvot
+quantile(autot$TILAVUUS, na.rm = TRUE)
+print("TEHO")
+quantile(autot$TEHO, na.rm = TRUE)
+```
+Kvantiileista nähdään, että alimmalla 25% autoista on ajettu vähemmän kuin 14000 kilometriä. Vastaavasti myös puolilla kaikista taulukoiduista autoista on ajettu vähemmän kuin 50 tuhatta kilometriä. Autot ovat ominaisuuksiltaan hyvin tavanomaisia arkiautoja, jotka edustavat aikansa suosituimpia automalleja. Hinnat ovat siis myös suhteessa alhaiset, halvimpien 50% autoista ollessa alle 16000€ hintaisia. Kallein taulukoitu autokin on vain hiukan yli 30000€. Auton moottorien iskutilavuuden sekä tehon arvot ovat melko hyvin hajaantuneet tasaisesti kvantiilien mukaan.
+
+Tarkastellaan myös bensiini- ja dieselautojen esiintyvyys käsiteltävässä aineistossa. Tutkitaan siis, montako alkiota sarakkeessa *P_AINE* saa arvon 1 ja montako arvon 2. (Arvon 1 vastatessa bensiiniautoa, ja arvon 2 vastatessa dieselautoa). Mallinnetaan havainto pylväsdiagrammin avulla.
+
+```{r}
+autot$P_AINE <- factor(autot$P_AINE,
+levels = c("1","2"),
+labels = c("Bensiini", "Diesel"))
+
+freq <- table(autot$P_AINE)
+print(freq)
+barplot(freq, main = "Käytetty polttoaine", col = c("peachpuff", "lightyellow"))
+```
+<br/>
+Nähdään, että autoista reilu enemmistö on bensiiniautoja. 392 autoa on merkitty käyttävän polttoaineenaan bensiiniä, kun dieselille vastaava lukema on 95. Bensa-autot muodostavat siis kaikista 487 taulukoiduista autoista noin 80%.
+
+Tutkitaan vastaavat lukemat piirakkadiagrammin avulla myös automalleille. Alkuperäisen taulukon sarake 9 esittelee merkin Ford Focus kaksi kertaa, joten asetetaan Ford Focus sekä arvon 3 että 8 labeliksi.
+
+```{r}
+autot$MERKKI <- factor(autot$MERKKI,
+levels = c("1","2","3","4","5","6","7","8"),
+labels = c("Audi A3", "Citroen C3", "Ford Focus", 
+           "Opel Astra", "Renault Laguna", "Toyota Yaris", 
+           "Volkswagen Golf", "Ford Focus"))
+
+sum(autot$MERKKI == "Audi A3")
+sum(autot$MERKKI == "Citroen C3")
+sum(autot$MERKKI == "Ford Focus")
+sum(autot$MERKKI == "Opel Astra")
+sum(autot$MERKKI == "Renault Laguna")
+sum(autot$MERKKI == "Toyota Yaris")
+sum(autot$MERKKI == "Volkswagen Golf")
+
+freq2 <- table(autot$MERKKI)
+pie(freq2, main = "Listattujen autojen merkit", col = c("mistyrose", "lightyellow", "lavenderblush", "lavender", "lightblue1", "honeydew1", "linen"))
+
+```
+<br/>
+Nähdään, että autoista suurin osa on Toyota Yaris -merkkisiä ja vähiten on Renault Laguna -merkkisiä autoja. Valtaosa taulukkoon rekisteröidyistä autoista ovat joko Toyota Yariksia, Ford Focuksia, Opel Astroja tai Volkswagen Golfeja.
+  
+  
+  
+## Muuttujien jakaumat ja korrelaatiot
+
+#### Auton hinnoittelun sekä matkamittarilukeman normaalijakauma
+
+Aikaisemmin työssä kävi ilmi, että osa muuttujista noudattaa luultavasti normaalijakaumaa niissä esiintyvän pienen keskihajonnan takia. Tutkitaan normaalijakautuvuus histogrammi-kaaviolla auton hinnan sekä matkamittarilukeman osalta. Histogrammi kuvaa annetun datan jakaumaa.
+
+```{r}
+hist(autot$MATKAMITTARI, breaks = 100, 
+     main = "Matkamittarilukeman jakauma",
+     xlab = "Ajettu matka kilometreissä",
+     ylab = "Esiintyvyys",
+     col="darkseagreen1")
+     
+```
+<br/>
+Normaalijakaumaa vääristää se, että osa autoista on käytännössä täysin ajamattomia tai matkamittarilukema on hyvin minimaalinen. Ilman näitä (ajomatka n. alle 10 000 km) muuttujia jakauma näyttää noudattavan suurpiirteisesti normaalijakaumaa. Toistetaan tarkastelu autojen hinnoille. Tihennetään myös hiukan jakaumatiheyttä.
+
+```{r}
+hist(autot$HINTA, breaks = 70, 
+     main = "Auton hinnan jakauma",
+     xlab = "Hinta euroissa",
+     ylab = "Esiintyvyys",
+     col="lightcyan")
+
+```
+<br/>
+Ajoittaiset, korkeat piikit johtuvat siitä, että valtaosa autoista on hinnoiteltu tasalukuun. Autojen ei ole loogista olla nollahinnoiteltuja, joten hinnan suhteen jakauma näyttää melko lähelle normaalijakaumalta.
+
+#### $\chi ^2$-testi 
+
+Tutkitaan myös korrelaatioita $\chi ^2$-testin kautta. Kahden muuttujan sanotaan olevan toisistaan riippumattomat, jos toisen muuttujan todennäköisyysjakaumaan ei vaikuta jonkin toisen muuttujan olemassaolo. Tämä korrelaatio on mahdollista selvittää $\chi ^2$-testin avulla, jolle on R:ssä sisäänrakennettu funktio *chisq.test*. Testi antaa tulokseksi muuttujien välistä yhteyttä kuvaavan p-arvon. Jos p-arvo on vähemmän kuin 0.05, voidaan nollahypoteesi (muuttujien välillä ei yhteyttä) hylätä, ja katsoa muuttujien olevan jollakin asteella toisistaan riippuvat. Arvon kasvaessa yli 0.05:n korrelaation olemassaolo on epätodennäköinen.
+
+Selvitetään taulukoiduissa autoissa moottorin iskutilavuuden sekä tehon välinen korrelaatio. Otollinen p-arvo kertoisi, että auton teho riippuisi sen moottorin iskutilavuudesta.
+
+```{r}
+#Taulukoidaan tehon ja tilavuuden arvot, ja tutkitaan riippuvuus.
+temp <- table(autot$TEHO, autot$TILAVUUS)
+chisq.test(temp)
+```
+<br/>
+Tulokseksi saadaan erittäin matala p-arvo, alle $2.2 \cdot 10^{-16}$. Voidaan siis hylätä nollahypoteesi ja todeta, että auton tehon ja moottorin iskutilavuuden välillä on yhteys. Siis moottorin teho riippuu iskutilavuudesta ja toisin päin.
+
+Toistetaan $\chi ^2$-testi vielä auton matkamittarille ja hinnalle, ja tutkitaan, onko auton hinta riippuvainen matkamittarilukemasta. Auton hintaan vaikuttaa useita tekijöitä, mutta testataan onko matkamittarilukema selkeä tekijä.
+
+```{r}
+temp2 <- table(autot$MATKAMITTARI, autot$HINTA)
+chisq.test(temp2)
+```
+<br/>
+Saadaan korkea p-arvo $0.9967.$ Nollahypoteesi siis pysyy voimassa, ja matkamittarilukeman sekä auton hinnan välinen yhteys on epätodennäköinen. Saatu p-arvo ei kuitenkaan ole liian iso, joten muuttujilla on edelleen mahdollista olla joitain kytköksiä.
+
+#### Pearson-korrelaatiotesti
+
+Tutkitaan vielä $\chi ^2$-testin lisäksi taulukossa esiintyvien muuttujien korrelaatioita muilla keinoin. Edellisen kohdan jälkeen jää tutkittavaksi, onko esimerkiksi auton hinnan ja matkamittarilukeman välillä jonkinlaista yhteyttä. Piirretään datapistekuvaaja käyttäen näitä kahta muuttujaa apuna.
+
+```{r}
+plot(autot$MATKAMITTARI, autot$HINTA, 
+     pch = 16,
+     main = "Datapisteet autojen hinnalle ja matkamittarille",
+     xlab = "Matkamittarilukema (km)",
+     ylab = "Hinta (€)")
+```
+
+
+
+Datapisteistä nähdään, että niiden jakautuminen seuraa jonkinlaista kaavaa. Myös itse taulukkoa lukemalla voitaisiin tulkita, että auton hinta laskee ajettujen kilometrien myötä. Tällaista lineaarista riippuvuutta voidaan tutkia Pearson-korrelaation avulla. 
+
+R tukee erilaisia korrelaatiotestejä komennon *cor.test*-avulla, joten sovelletaan sitä auton matkamittarilukeman sekä hinnan Pearson-korrelaation laskemisessa. Kuten $\chi ^2$-testi, Pearson-testi toteaa lineaarisen korrelaation olemassaolon jos p-arvo $< 0.05$.
+
+```{r}
+#Lasketaan Pearson-korrelaatio. Komento cor.test ottaa parametrina halutun
+#korrelaation laskentatavan, mutta standarditapaus on Pearson-korrelaatio.
+cor.test(autot$HINTA, autot$MATKAMITTARI)
+```
+Myös Pearson-korrelaatio antaa erittäin pienen p-arvon, joka kuvastaa hyvin vahvaa lineaarista korrelaatiota kahden eri muuttujan välillä. Tämä korrelaatio on siis olemassa taulukoitujen autojen hinnalle ja matkamittarilukemalle. Tehdään tästä korrelaatiosta vielä seuraavassa osiossa löydetylle havainnolle sovitesuora.
+
+Kokeillaan Pearson-korrelaatiota vielä auton hinnalle ja teholle.
+```{r}
+#cor.test ei hyväksy NaN-arvoja, joten otetaan testiin mukaan vain 
+#kummankin muuttujan täydet parit.
+cor.test(autot$HINTA, autot$TEHO, use="pairwise.complete.obs")
+```
+Myös näiltä muuttujilta löytyy pienen p-arvon mukaan lineaarinen korrelaatio.Testataan myös näiden muuttujien osalta lineaarinen regressio seuraavassa osassa.
+
+Korrelaatioita näyttää löytyvän laskettavasta datasta jonkun verran. Selvitetään vielä auton hinnan ja moottorin iskutilavuuden välinen lineaarinen korrelaatio, joka vaikuttaa epätodennäköiseltä.
+
+```{r}
+#cor.test ei hyväksy NaN-arvoja, joten otetaan testiin mukaan vain 
+#kummankin muuttujan täydet parit.
+cor.test(autot$HINTA, autot$TILAVUUS, use="pairwise.complete.obs")
+```
+Nyt saadaan p-arvoksi $9.333 \cdot 10^{-7}$. Korrelaatio on siis näillekin muuttujille olemassa, mutta huomattavasti pienemmissä määrin kuin kahdelle aikaisemmalle.
+
+#### Muuttujien lineaarinen regressio
+
+$\chi ^2$-testin mukaan auton hinta ei ole riippuvainen matkamittarilukemasta ja toisin päin. Korrelaatiotestin mukaan näillä muuttujilla on kuitenkin keskenään lineaarista riippuvuutta. Tutkitaan sekä muodostetaan näille muuttujille vielä lineaarinen regressio, ja katsotaan millainen on muuttujien regressioyhteys. Toistetaan testi myös hinnan ja tehon korrelaatiolle.
+
+```{r}
+#Piirretään lineaarisen regression kuvaaja.
+plot(autot$MATKAMITTARI, autot$HINTA, 
+    col = "lightpink" , 
+    main = "Auton hinnan ja matkamittarilukeman lineaarinen regressio",
+    abline(lm(autot$HINTA~autot$MATKAMITTARI)),
+    cex = 1,
+    pch = 16, 
+    xlab = "Auton hinta (€)" ,
+    ylab = "Matkamittarilkm. (km)")
+```
+<br/>
+
+Regressiosuora on laskeva, kuten oletettua. Auton matkamittarilukeman noustessa auton käyttöaste kasvaa, mikä vaikuttaa auton laatuun alentavasti. Siispä hintaa lasketaan käytetympää autoa myydessä. Suurin osa datapisteistä noudattaa tätä suhdetta.
+
+```{r}
+#Piirretään lineaarisen regression kuvaaja.
+plot(autot$TEHO, autot$HINTA, 
+    col = "plum2", 
+    main = "Auton hinnan ja tehon lineaarinen regressio",
+    abline(lm(autot$HINTA~autot$TEHO)),
+    cex = 1,
+    pch = 16, 
+    xlab = "Teho (hv)" ,
+    ylab = "Auton hinta (€)")
+```
+<br/>
+Nähdään, että tämä suora on nousujohteinen: tehon kasvaessa myös autosta pyydetään yleensä korkeampaa hintaa. Datapisteet asettuvat suoraan, koska tehon arvo on paljon pienempi suhteessa hintaan.
